@@ -1,3 +1,4 @@
+dev_dependencies:
 image: assets/movie_icon.png
 color: "42a5f5"
 android: true
