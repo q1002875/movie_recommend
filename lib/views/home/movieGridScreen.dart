@@ -151,35 +151,26 @@ class _MovieGridScreenState extends State<MovieGridScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
-      floatingActionButton: AnimatedSlide(
-        duration: const Duration(milliseconds: 300),
-        offset: _showFloatingButton ? Offset.zero : const Offset(0, 2),
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 300),
-          opacity: _showFloatingButton ? 1 : 0,
-          child: FloatingActionButton(
-            onPressed: () {
-              _scrollController.animateTo(
-                0,
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeOutCubic,
-              );
-            },
-            backgroundColor: Theme.of(context).primaryColor,
-            child: const Icon(Icons.arrow_upward),
-          ),
+      floatingActionButton: _buildFloatingButton(),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // 強制刷新當前分類的數據
+          await _loadMovies(currentCategory, forceRefresh: true);
+        },
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(), // 確保可以下拉刷新
+          slivers: [
+            _buildAppBar(),
+            _buildCategoryTabs(),
+            _buildMovieGrid(),
+          ],
         ),
-      ),
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          _buildAppBar(),
-          _buildCategoryTabs(),
-          _buildMovieGrid(),
-        ],
       ),
     );
   }
+
+  // ... 其他現有方法保持不變 ...
 
   @override
   void dispose() {
@@ -223,7 +214,7 @@ class _MovieGridScreenState extends State<MovieGridScreen>
 
   Widget _buildCategoryTabs() {
     return SliverPersistentHeader(
-      pinned: true,
+      // 移除 pinned: true，讓 tab bar 可以隨著滾動消失
       delegate: _SliverAppBarDelegate(
         minHeight: 60,
         maxHeight: 60,
@@ -264,33 +255,67 @@ class _MovieGridScreenState extends State<MovieGridScreen>
     );
   }
 
+  Widget _buildFloatingButton() {
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 300),
+      offset: _showFloatingButton ? Offset.zero : const Offset(0, 2),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: _showFloatingButton ? 1 : 0,
+        child: FloatingActionButton(
+          onPressed: () {
+            _scrollController.animateTo(
+              0,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+            );
+          },
+          backgroundColor: Theme.of(context).primaryColor,
+          child: const Icon(Icons.arrow_upward),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMovieGrid() {
     return Consumer<MovieProvider>(
       builder: (context, movieProvider, child) {
-        if (movieProvider.isLoading) {
+        if (movieProvider.isLoading && movieProvider.movies.isEmpty) {
+          // 只在沒有數據時顯示加載指示器
           return const SliverFillRemaining(
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
-        return SliverPadding(
-          padding: const EdgeInsets.all(16),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.6,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+        return SliverList(
+          delegate: SliverChildListDelegate([
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 0.6,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: movieProvider.movies.length,
+                itemBuilder: (context, index) =>
+                    _MovieCard(movie: movieProvider.movies[index]),
+              ),
             ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) =>
-                  _MovieCard(movie: movieProvider.movies[index]),
-              childCount: movieProvider.movies.length,
-            ),
-          ),
+            const SizedBox(height: 70),
+          ]),
         );
       },
     );
+  }
+
+  Future<void> _loadMovies(MovieCategory category,
+      {bool forceRefresh = false}) async {
+    final movieProvider = Provider.of<MovieProvider>(context, listen: false);
+    await movieProvider.fetchMovies(category, forceRefresh: forceRefresh);
   }
 
   void _onScroll() {

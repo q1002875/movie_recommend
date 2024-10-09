@@ -85,7 +85,7 @@ class MainPage extends StatelessWidget {
           child: TabBar(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             indicator: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
               color: Theme.of(context).primaryColor.withOpacity(0.1),
             ),
             dividerColor: Colors.transparent,
@@ -101,9 +101,9 @@ class MainPage extends StatelessWidget {
             labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
             tabs: [
-              _buildTab(Icons.local_fire_department_rounded, 'Hot'),
-              _buildTab(Icons.search_rounded, 'Search'),
-              _buildTab(Icons.bar_chart_rounded, 'Rank'),
+              _buildTab(Icons.local_fire_department_rounded, '發燒'),
+              _buildTab(Icons.search_rounded, '搜尋'),
+              _buildTab(Icons.bar_chart_rounded, '排行'),
             ],
           ),
         ),
@@ -113,11 +113,11 @@ class MainPage extends StatelessWidget {
 
   Widget _buildTab(IconData icon, String label) {
     return Tab(
-      height: 56,
+      height: 55,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 24),
+          Icon(icon, size: 30),
           const SizedBox(height: 4),
           Text(label),
         ],

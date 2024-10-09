@@ -19,18 +19,7 @@ class _SearchViewState extends State<SearchView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        title: const Text(
-          '發現電影',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-      ),
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           // 搜索框部分
@@ -124,6 +113,48 @@ class _SearchViewState extends State<SearchView> {
   void initState() {
     super.initState();
     _fetchGenres();
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      title: const Text(
+        '發現電影',
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      ),
+      actions: [
+        if (_isSearching) // 只在搜索結果頁面顯示探索按鈕
+          TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () {
+              setState(() {
+                _isSearching = false;
+                _movies.clear();
+                _controller.clear(); // 清空搜索框
+              });
+            },
+            child: Text(
+              '探索',
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        const SizedBox(width: 16), // 右側邊距
+      ],
+    );
   }
 
   Widget _buildGenreGrid() {
