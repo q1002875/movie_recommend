@@ -88,6 +88,28 @@ class MovieProvider with ChangeNotifier {
     }
   }
 
+  Future<void> fetchSortedMovies(String sortBy) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      MovieService movieService = MovieService();
+      List<Movie> newMovies = await movieService.fetchSortedMovies(sortBy);
+
+      _movies = newMovies;
+      _currentCategory = null; // 可以设为 null 或者其他值，取决于你的设计
+      _updateCache(MovieCategory.popular, newMovies); // 更新缓存，可以根据需要调整分类
+    } catch (e) {
+      print('Error fetching sorted movies: $e');
+      // 如果发生错误，可以选择使用之前的缓存
+      // 例如：_loadFromCache(MovieCategory.popular);
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // 從緩存加載數據
   void _loadFromCache(MovieCategory category) {
     if (_cachedMovies.containsKey(category)) {
