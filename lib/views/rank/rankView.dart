@@ -7,24 +7,35 @@ class RankView extends StatefulWidget {
   _RankViewState createState() => _RankViewState();
 }
 
-class _RankViewState extends State<RankView> {
-  late Future<List<Movie>> movieRankings;
+class _RankViewState extends State<RankView>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final MovieService movieService = MovieService();
   final Map<int, double> _movieRatings = {};
+  final Map<int, double> _movieRevenues = {};
+  String _currentSortOption = 'popularity.desc';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('電影排行榜'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: '熱門程度', icon: Icon(Icons.local_fire_department_rounded)),
+            Tab(text: '評分', icon: Icon(Icons.star_rounded)),
+            Tab(text: '票房', icon: Icon(Icons.attach_money_rounded)),
+          ],
+        ),
       ),
       body: FutureBuilder<List<Movie>>(
-        future: movieRankings,
+        future: _loadSortedMovies(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return const Center(child: Text('无法加载排行榜'));
+            return Center(child: Text('無法加載排行榜: ${snapshot.error}'));
           } else if (snapshot.hasData) {
             final movies = snapshot.data!;
             return ListView.builder(
@@ -32,17 +43,13 @@ class _RankViewState extends State<RankView> {
               itemBuilder: (context, index) {
                 final movie = movies[index];
                 final rating = _movieRatings[movie.id];
+                final revenue = _movieRevenues[movie.id];
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Stack(
                     children: [
-                      // 排名標籤
-
-                      // 主卡片
                       Card(
                         elevation: 4,
                         shape: RoundedRectangleBorder(
@@ -63,7 +70,6 @@ class _RankViewState extends State<RankView> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                // 海報
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: movie.posterPath != null
@@ -80,7 +86,6 @@ class _RankViewState extends State<RankView> {
                                         ),
                                 ),
                                 const SizedBox(width: 16),
-                                // 電影信息
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -98,37 +103,24 @@ class _RankViewState extends State<RankView> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 12),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
+                                      _buildInfoRow(
+                                        icon: Icons.star_rounded,
+                                        text: rating != null
+                                            ? '${rating.toStringAsFixed(1)} / 10'
+                                            : '加載中...',
+                                        color: Colors.amber,
+                                      ),
+                                      if (revenue != null)
+                                        _buildInfoRow(
+                                          icon: Icons.attach_money_rounded,
+                                          text:
+                                              '\$${(revenue / 1000000).toStringAsFixed(1)}M',
+                                          color: Colors.green,
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.star,
-                                              color: Colors.amber,
-                                              size: 20,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              rating != null
-                                                  ? '${rating.toStringAsFixed(1)} / 10'
-                                                  : '加载中...',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w500,
-                                                color: Colors.grey[800],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                      _buildInfoRow(
+                                        icon: Icons.calendar_today_rounded,
+                                        text: movie.releaseDate,
+                                        color: Colors.blue,
                                       ),
                                     ],
                                   ),
@@ -142,8 +134,8 @@ class _RankViewState extends State<RankView> {
                         top: 5,
                         right: 5,
                         child: Container(
-                          width: 40,
-                          height: 40,
+                          width: 30,
+                          height: 30,
                           decoration: BoxDecoration(
                             color: Colors.blueAccent,
                             borderRadius:
@@ -174,7 +166,7 @@ class _RankViewState extends State<RankView> {
               },
             );
           } else {
-            return const Center(child: Text('没有数据'));
+            return const Center(child: Text('沒有數據'));
           }
         },
       ),
@@ -182,41 +174,88 @@ class _RankViewState extends State<RankView> {
   }
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
-    movieRankings = movieService.fetchPopularMovies().then((response) {
-      return _fetchAllMovieRatings(response);
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        _onTabChanged();
+      }
     });
   }
 
-  Future<List<Movie>> _fetchAllMovieRatings(MovieResponse response) async {
-    final List<Future<void>> ratingFutures = [];
+  Widget _buildInfoRow(
+      {required IconData icon, required String text, required Color color}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[800],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    for (var movie in response.movies) {
-      ratingFutures.add(_fetchMovieRating(movie.id));
+  Future<void> _fetchAllMovieDetails(List<Movie> movies) async {
+    final List<Future<void>> detailFutures = [];
+
+    for (var movie in movies) {
+      detailFutures.add(_fetchMovieDetail(movie.id));
     }
 
-    await Future.wait(ratingFutures);
-
-    response.movies.sort((a, b) {
-      final ratingA = _movieRatings[a.id] ?? 0;
-      final ratingB = _movieRatings[b.id] ?? 0;
-      return ratingB.compareTo(ratingA);
-    });
-
-    return response.movies;
+    await Future.wait(detailFutures);
   }
 
-  Future<void> _fetchMovieRating(int movieId) async {
-    if (_movieRatings.containsKey(movieId)) return;
+  Future<void> _fetchMovieDetail(int movieId) async {
+    if (_movieRatings.containsKey(movieId) &&
+        _movieRevenues.containsKey(movieId)) return;
 
     try {
       final movieDetail = await movieService.fetchMovieDetail(movieId);
+      final revenue = await movieService.fetchMovieRevenue(movieId);
       setState(() {
         _movieRatings[movieId] = movieDetail.voteAverage;
+        _movieRevenues[movieId] = revenue;
       });
     } catch (e) {
       print('Failed to load movie detail: $e');
     }
+  }
+
+  Future<List<Movie>> _loadSortedMovies() async {
+    final movies = await movieService.fetchSortedMovies(_currentSortOption);
+    await _fetchAllMovieDetails(movies);
+    return movies;
+  }
+
+  void _onTabChanged() {
+    setState(() {
+      switch (_tabController.index) {
+        case 0:
+          _currentSortOption = 'popularity.desc';
+          break;
+        case 1:
+          _currentSortOption = 'vote_average.desc';
+          break;
+        case 2:
+          _currentSortOption = 'revenue.desc';
+          break;
+      }
+    });
   }
 }

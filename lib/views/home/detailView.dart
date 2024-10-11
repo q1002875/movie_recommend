@@ -17,46 +17,55 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: FutureBuilder<MovieDetail>(
-        future: movieDetailFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    '無法加載電影詳情',
-                    style: Theme.of(context).textTheme.titleLarge,
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        // 當偵測到左滑動作（滑動速度為負值）
+        if (details.primaryVelocity! > 0) {
+          Navigator.of(context).pop(); // 返回上一頁
+        }
+      },
+      child: Scaffold(
+        body: FutureBuilder<MovieDetail>(
+          future: movieDetailFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      '無法加載電影詳情',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ],
+                ),
+              );
+            } else if (snapshot.hasData) {
+              final movieDetail = snapshot.data!;
+              return CustomScrollView(
+                slivers: [
+                  _buildSliverAppBar(movieDetail),
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildMovieInfo(movieDetail),
+                        _buildTrailersSection(),
+                        _buildReviewsSection(),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-            );
-          } else if (snapshot.hasData) {
-            final movieDetail = snapshot.data!;
-            return CustomScrollView(
-              slivers: [
-                _buildSliverAppBar(movieDetail),
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildMovieInfo(movieDetail),
-                      _buildTrailersSection(),
-                      _buildReviewsSection(),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          }
-          return const Center(child: Text('沒有數據'));
-        },
+              );
+            }
+            return const Center(child: Text('沒有數據'));
+          },
+        ),
       ),
     );
   }

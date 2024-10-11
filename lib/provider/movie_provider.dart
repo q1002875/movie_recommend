@@ -5,23 +5,9 @@ import 'package:movie_recommend/server/movie_service.dart';
 enum MovieCategory {
   popular, // 热门电影
   upcoming, // 即将上映电影
+  topRated, // 高评分电影
+  highRevenue, // 高票房电影
 }
-
-// 更好的性能：
-
-// 減少不必要的網絡請求
-// 快速顯示緩存數據
-
-// 更好的用戶體驗：
-
-// 數據加載更快
-// 離線時可以查看緩存內容
-// 減少加載時的閃爍
-
-// 更穩定的應用：
-
-// 完善的錯誤處理
-// 網絡問題時的優雅降級
 
 class MovieProvider with ChangeNotifier {
   List<Movie> _movies = [];
@@ -67,12 +53,23 @@ class MovieProvider with ChangeNotifier {
       MovieService movieService = MovieService();
       List<Movie> newMovies;
 
-      if (category == MovieCategory.popular) {
-        final response = await movieService.fetchPopularMovies();
-        newMovies = response.movies;
-      } else {
-        final response = await movieService.fetchUpcomingMovies();
-        newMovies = response.movies;
+      switch (category) {
+        case MovieCategory.popular:
+          final response = await movieService.fetchPopularMovies();
+          newMovies = response.movies;
+          break;
+        case MovieCategory.upcoming:
+          final response = await movieService.fetchUpcomingMovies();
+          newMovies = response.movies;
+          break;
+        case MovieCategory.topRated:
+          final response = await movieService.fetchTopRatedMovies();
+          newMovies = response.movies;
+          break;
+        case MovieCategory.highRevenue:
+          final response = await movieService.fetchHighRevenueMovies();
+          newMovies = response.movies;
+          break;
       }
 
       _movies = newMovies;
@@ -84,7 +81,6 @@ class MovieProvider with ChangeNotifier {
       if (_cachedMovies.containsKey(category)) {
         _loadFromCache(category);
       }
-      // 可以在這裡添加錯誤處理，例如顯示錯誤提示
       rethrow;
     } finally {
       _isLoading = false;
@@ -118,3 +114,21 @@ class MovieProvider with ChangeNotifier {
     _cacheTimestamps[category] = DateTime.now();
   }
 }
+
+
+
+// 更好的性能：
+
+// 減少不必要的網絡請求
+// 快速顯示緩存數據
+
+// 更好的用戶體驗：
+
+// 數據加載更快
+// 離線時可以查看緩存內容
+// 減少加載時的閃爍
+
+// 更穩定的應用：
+
+// 完善的錯誤處理
+// 網絡問題時的優雅降級
