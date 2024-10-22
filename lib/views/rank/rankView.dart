@@ -24,149 +24,19 @@ class _RankViewState extends State<RankView>
           controller: _tabController,
           tabs: const [
             Tab(text: '熱門程度', icon: Icon(Icons.local_fire_department_rounded)),
-            Tab(text: '評分', icon: Icon(Icons.star_rounded)),
+            // Tab(text: '評分', icon: Icon(Icons.star_rounded)),
             Tab(text: '票房', icon: Icon(Icons.attach_money_rounded)),
           ],
         ),
       ),
-      body: FutureBuilder<List<Movie>>(
-        future: _loadSortedMovies(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('無法加載排行榜: ${snapshot.error}'));
-          } else if (snapshot.hasData) {
-            final movies = snapshot.data!;
-            return ListView.builder(
-              itemCount: movies.length,
-              itemBuilder: (context, index) {
-                final movie = movies[index];
-                final rating = _movieRatings[movie.id];
-                final revenue = _movieRevenues[movie.id];
-
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Stack(
-                    children: [
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    MovieDetailScreen(movieId: movie.id),
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: movie.posterPath != null
-                                      ? Image.network(
-                                          'https://image.tmdb.org/t/p/w300${movie.posterPath}',
-                                          width: 100,
-                                          height: 150,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : const SizedBox(
-                                          width: 100,
-                                          height: 150,
-                                          child: Icon(Icons.movie, size: 50),
-                                        ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        movie.title,
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          height: 1.3,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      _buildInfoRow(
-                                        icon: Icons.star_rounded,
-                                        text: rating != null
-                                            ? '${rating.toStringAsFixed(1)} / 10'
-                                            : '加載中...',
-                                        color: Colors.amber,
-                                      ),
-                                      if (revenue != null)
-                                        _buildInfoRow(
-                                          icon: Icons.attach_money_rounded,
-                                          text:
-                                              '\$${(revenue / 1000000).toStringAsFixed(1)}M',
-                                          color: Colors.green,
-                                        ),
-                                      _buildInfoRow(
-                                        icon: Icons.calendar_today_rounded,
-                                        text: movie.releaseDate,
-                                        color: Colors.blue,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 5,
-                        right: 5,
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: Colors.blueAccent,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(8)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
+      body: Consumer<MovieProvider>(
+        builder: (context, movieProvider, child) {
+          if (movieProvider.isLoading) {
+            return _buildShimmerList();
+          } else if (movieProvider.movies.isEmpty) {
+            return const Center(child: Text('無法加載排行榜'));
           } else {
-            return const Center(child: Text('沒有數據'));
+            return _buildMovieList(movieProvider.movies);
           }
         },
       ),
@@ -182,12 +52,13 @@ class _RankViewState extends State<RankView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
         _onTabChanged();
       }
     });
+    _loadInitialData();
   }
 
   Widget _buildInfoRow(
@@ -211,36 +82,152 @@ class _RankViewState extends State<RankView>
     );
   }
 
-  Future<void> _fetchAllMovieDetails(List<Movie> movies) async {
-    final List<Future<void>> detailFutures = [];
+  Widget _buildMovieList(List<Movie> movies) {
+    return ListView.builder(
+      itemCount: movies.length,
+      itemBuilder: (context, index) {
+        final movie = movies[index];
+        final rating = movies[index].voteAverage;
+        final revenue = _movieRevenues[movie.id];
 
-    for (var movie in movies) {
-      detailFutures.add(_fetchMovieDetail(movie.id));
-    }
-
-    await Future.wait(detailFutures);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Stack(
+            children: [
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            MovieDetailScreen(movieId: movie.id),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: movie.posterPath != null
+                              ? Image.network(
+                                  'https://image.tmdb.org/t/p/w300${movie.posterPath}',
+                                  width: 100,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                )
+                              : const SizedBox(
+                                  width: 100,
+                                  height: 150,
+                                  child: Icon(Icons.movie, size: 50),
+                                ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                movie.title,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 12),
+                              _buildInfoRow(
+                                icon: Icons.star_rounded,
+                                text: rating != null
+                                    ? '${rating.toStringAsFixed(1)} / 10'
+                                    : '加載中...',
+                                color: Colors.amber,
+                              ),
+                              if (revenue != null)
+                                _buildInfoRow(
+                                  icon: Icons.attach_money_rounded,
+                                  text:
+                                      '\$${(revenue / 1000000).toStringAsFixed(1)}M',
+                                  color: Colors.green,
+                                ),
+                              _buildInfoRow(
+                                icon: Icons.calendar_today_rounded,
+                                text: movie.releaseDate,
+                                color: Colors.blue,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 5,
+                right: 5,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent,
+                    borderRadius: const BorderRadius.all(Radius.circular(8)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  Future<void> _fetchMovieDetail(int movieId) async {
-    if (_movieRatings.containsKey(movieId) &&
-        _movieRevenues.containsKey(movieId)) return;
-
-    try {
-      final movieDetail = await movieService.fetchMovieDetail(movieId);
-      final revenue = await movieService.fetchMovieRevenue(movieId);
-      setState(() {
-        _movieRatings[movieId] = movieDetail.voteAverage;
-        _movieRevenues[movieId] = revenue;
-      });
-    } catch (e) {
-      print('Failed to load movie detail: $e');
-    }
+  Widget _buildShimmerList() {
+    return ListView.builder(
+      itemCount: 10, // Arbitrary number of shimmer items
+      itemBuilder: (context, index) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ShimmerBox(
+            width: double.infinity,
+            height: 174, // Adjust this to match your movie item height
+          ),
+        );
+      },
+    );
   }
 
-  Future<List<Movie>> _loadSortedMovies() async {
-    final movies = await movieService.fetchSortedMovies(_currentSortOption);
-    await _fetchAllMovieDetails(movies);
-    return movies;
+  void _loadInitialData() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<MovieProvider>().fetchSortedMovies(_currentSortOption);
+    });
   }
 
   void _onTabChanged() {
@@ -250,12 +237,10 @@ class _RankViewState extends State<RankView>
           _currentSortOption = 'popularity.desc';
           break;
         case 1:
-          _currentSortOption = 'vote_average.desc';
-          break;
-        case 2:
           _currentSortOption = 'revenue.desc';
           break;
       }
+      context.read<MovieProvider>().fetchSortedMovies(_currentSortOption);
     });
   }
 }
