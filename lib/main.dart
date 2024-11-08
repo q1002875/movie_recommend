@@ -1,11 +1,16 @@
 import 'common_imports.dart';
 
 Future<void> main() async {
-  //執行異步操作需要
+  // 执行异步操作需要
   WidgetsFlutterBinding.ensureInitialized();
+
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => MovieProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => MovieProvider()),
+        // ChangeNotifierProvider(create: (context) => AnotherProvider()),
+        // 你可以继续添加其他的 provider
+      ],
       child: const MyApp(),
     ),
   );
